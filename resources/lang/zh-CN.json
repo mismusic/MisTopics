@@ -1,0 +1,19 @@
+{
+  "Id": "ID",
+  "Name": "名称",
+  "Title": "标题",
+  "Content": "内容",
+  "Description": "描述",
+  "Category id": "分类",
+  "Deleted at": "删除时间",
+  "Read count": "阅读数",
+  "Reply count": "回复数",
+  "User id": "用户id",
+  "Reply id": "回复id",
+  "Topic id": "话题id",
+  "User": "用户",
+  "Reply": "回复",
+  "Topic": "话题",
+  "Created at": "创建时间",
+  "Updated at": "更新时间"
+}

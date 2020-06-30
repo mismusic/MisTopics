@@ -30,13 +30,13 @@ class AuthorizationRequest extends Request
         } else if($this->is('api/v1/authorizations/token')) {
             // 手机登录注册的处理逻辑
             return [
-                'phone' => [
-                    'required',
-                    'regex:/^((13[0-9])|(14[5,7])|(15[0-3,5-9])|(17[0,3,5-8])|(18[0-9])|166|198|199)\d{8}$/',
-                ],  // 验证手机号码是否规范
                 'verification_code' => ['required_without:password'],  // 当请求参数 passowrd 不存在的时候那这个字段必须要存在
                 'verification_key' => ['required_with:verification_code'],  // 只有当请求参数 verification_code 存在时，这个字段才必须要写
                 'password' => ['required_without:verification_code'],  // 当请求参数 verification_code 不存在的时候，那这个字段必须要写
+                'phone' => [
+                    'required_with:password',
+                    'regex:/^((13[0-9])|(14[5,7])|(15[0-3,5-9])|(17[0,3,5-8])|(18[0-9])|166|198|199)\d{8}$/',
+                ],  // 验证手机号码是否规范
             ];
         }
     }

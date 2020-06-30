@@ -13,10 +13,12 @@ use Illuminate\Support\Facades\Route;
 |
 */
 
-Route::get('/', function () {
-    $user = \App\Models\User::create([
-        'openid' => 'xxdfdf',
-        'avatar' => 'http://thirdwx.qlogo.cn/mmopen/vi_32/ZtIIiclNZCcV6tQrdcW3CFgiclqTBfDKJEBjA0NWFxuzNHbnpazbwtUXElRuTPy7HmqeE68sOTibvXRyQVjtouiaEA/132',
-        'name' => '天空之城'
-    ]);
-});
+Route::get('/', 'PagesController@index')->name('pages.index');
+
+// 用户路由
+Route::get('login', 'UsersController@login')->name('users.login');  // 用户登录
+Route::get('users/{user}', 'UsersController@show')->name('users.show');  // 用户资料
+Route::get('users/{user}/topics', 'UsersController@topics')->name('users.topics');  // 用户的话题列表
+Route::get('users/{user}/replies', 'UsersController@replies')->name('users.replies');  // 用户的回复列表
+Route::get('users/{user}/edit', 'UsersController@edit')->name('users.edit');  // 编辑用户资料
+Route::get('users/{user}/set', 'UsersController@set')->name('users.set');  // 用户设置

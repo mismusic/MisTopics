@@ -5,145 +5,164 @@ namespace App\Http\Controllers\Api;
 use App\Common\ApiReturnCode;
 use App\Common\Traits\ResponseJson;
 use App\Common\Traits\Verifications;
-use App\Common\Utils\UploadFile;
-use App\Common\Utils\Utils;
-use App\Exceptions\ApiHandlerException;
 use App\Http\Requests\Api\UserRequest;
+use App\Http\Resources\NotificationCollection;
+use App\Http\Resources\ReplyResource;
+use App\Http\Resources\TopicCollection;
+use App\Http\Resources\TopicResource;
 use App\Http\Resources\UserResource;
-use App\Jobs\SendEmailVerify;
+use App\Models\Queries\UserQuery;
 use App\Models\Resource;
 use App\Models\User;
-use Carbon\Carbon;
+use App\Services\UserService;
 use Illuminate\Http\Request;
+use Illuminate\Notifications\DatabaseNotification;
 use Illuminate\Support\Facades\Http;
-use Illuminate\Support\Facades\Storage;
-use Illuminate\Support\Str;
 
 class UsersController extends Controller
 {
     use ResponseJson, Verifications;
 
-    const EMIAL_VERIFY_TTL = 5;  // 单位表示分钟
+    /**
+     * @apiDefine UserNotFoundError
+     *
+     * @apiError (错误参数) {String} API_RETURN_CODE_USER_NOT_EXISTS 该用户不存在
+     *
+     * @apiErrorExample {json} 错误示例:
+     *     HTTP/1.1 404 Not Found
+     *     {
+     *       "code": 10008,
+     *       "msg": "该用户不存在"
+     *     }
+     */
 
-    // todo
-    public function show($id)
+    /**
+     * @apiDefine ResponseData
+     * @apiSuccess (返回数据) {Number} id                              User ID
+     * @apiSuccess (返回数据){String} username                        用户名
+     * @apiSuccess (返回数据){String} phone                           手机号码
+     * @apiSuccess (返回数据){String} email                           邮箱号码
+     * @apiSuccess (返回数据){String} email_verified_at               邮箱验证时间
+     * @apiSuccess (返回数据){String} avatar                          用户头像
+     * @apiSuccess (返回数据){String} weixin_openid                   微信openid
+     * @apiSuccess (返回数据){String} weixin_unionid                  微信unionid
+     * @apiSuccess (返回数据){String} introduction                    用户简介
+     * @apiSuccess (返回数据){Object[]} replies                         用户回复信息
+     * @apiSuccess (返回数据){Number} replies.id                      回复 ID
+     * @apiSuccess (返回数据){Number} replies.pid                     回复 parent ID
+     * @apiSuccess (返回数据){String} replies.content                 回复内容
+     * @apiSuccess (返回数据){String} replies.created_at              回复创建时间
+     * @apiSuccess (返回数据){String} replies.updated_at              回复更新时间
+     * @apiSuccess (返回数据){String} created_at                      用户创建时间
+     * @apiSuccess (返回数据){String} updated_at                      用户更新时间
+     */
+
+    /**
+     * @api {get} /api/v1/users/:id 获取用户个人信息
+     * @apiVersion 1.0.0
+     * @apiName GetUsers
+     * @apiGroup 用户接口
+     *
+     * @apiParam (请求参数) {Integer} id    用户ID
+     * @apiParam (请求参数) {String} [include]  需要包含的关联模型，例如include=topics,replies.topic
+     * @apiParamExample {String} 请求示例:
+     *      /api/v1/users/1?include=topics,replies.topic
+     *
+     * @apiUse ResponseData
+     * @apiSuccessExample {json} 响应示例:
+     *     HTTP/1.1 200 OK
+     *     {
+     *          "data": {
+     *              "id": 1,
+     *              "username": "Mis",
+     *              "phone": "13534256342",
+     *              "email": "2543205432@qq.com",
+     *              "email_verified_at": null,
+     *              "avatar": "https://cdn.learnku.com/uploads/images/201709/20/1/PtDKbASVcz.png?imageView2/1/w/600/h/600",
+     *              "weixin_openid": null,
+     *              "weixin_unionid": null,
+     *              "introduction": "Labore et omnis voluptatem ut nostrum.",
+     *              "replies": [
+     *                  {
+     *                      "id": 64,
+     *                      "pid": 24,
+     *                      "content": "Minus dolores asperiores ut autem libero facere.",
+     *                      "created_at": "2周前",
+     *                      "updated_at": "2周前"
+     *                  },
+     *                  {
+     *                      "id": 68,
+     *                      "pid": 0,
+     *                      "content": "Modi rem magnam sint autem quibusdam inventore ea.",
+     *                      "created_at": "4周前",
+     *                      "updated_at": "4周前"
+     *                  },
+     *              ],
+     *              "created_at": "2020-05-30 16:10:38",
+     *              "updated_at": "2020-06-10 00:13:59"
+     *          },
+     *          "code": 200,
+     *          "msg": "返回数据成功"
+     *      }
+     *
+     * @apiUse UserNotFoundError
+     */
+    public function show(Request $request, $id, UserService $userService)
     {
-        $user = User::query()->where('id', $id)->first();
-        if (empty($user)) {
-            api_error(ApiReturnCode::API_RETURN_CODE_USER_NOT_EXISTS, 404);
-        }
-        return new UserResource($user);
+        $user = $userService->show($request, $id);  // 获取用户信息
+        return new UserResource($user);  // 返回数据
+    }
+
+    public function topics(Request $request, User $user, UserService $userService)
+    {
+        $topics = $userService->topics($request, $user);
+        return new TopicCollection($topics);
+    }
+
+    public function replies(Request $request, User $user, UserService $userService)
+    {
+        $replies = $userService->replies($request, $user);
+        return ReplyResource::collection($replies);
     }
 
     public function user(Request $request)
     {
-        $user = $request->user();
-        return new UserResource($user);
+        $user = $request->user();  // 获取当前用户信息
+        return new UserResource($user);  // 返回当前用户模型
     }
 
-    public function update(UserRequest $request, User $user, Resource $resource)
+    public function notifications(Request $request, UserService $userService)
     {
-        // 验证用户是否有权限执行该操作
+        $notifications = $userService->notifications($request);  // 执行用户通知列表逻辑
+        return new NotificationCollection($notifications);  // 返回用户通知列表
+    }
+
+    public function notificationDestroy(DatabaseNotification $notification, UserService $userService)
+    {
+        $this->authorize('own', $notification);  // 检查权限
+        $userService->notificationDestroy($notification);  // 删除当前用户下面的通知数据
+        return $this->returnJson(ApiReturnCode::API_RETURN_CODE_SUCCESS);  // 返回数据
+    }
+
+    public function update(UserRequest $request, User $user, Resource $resource, UserService $userService)
+    {
+        // 1.验证用户是否有权限执行该操作
         $this->authorize('update', $user);
-        // 1.获取请求数据，并且组装要写入用户表的数据
-        $username = $request->input('username');  // 用户名
-        $introduction = $request->input('introduction');  // 用户简介
-        // 把要存储到用户表的数据都写入到一个数组里面
-        $data = [
-            'username' => $username,
-            'introduction' => $introduction,
-        ];
-        // 2.检查有没有上传头像，如果上传了就获取对应的文件信息，并且把它存储到资源表中
-        $resourceId = null;
-        if ($request->hasFile('avatar'))
-        {
-            // 生成一个头像文件，并且根据参数对头像进行缩放和剪切
-            $fileInfo = UploadFile::localStorage($request->file('avatar'), 'images', $user->id, 'image', 250);
-            // 对以前的头像文件进行删除
-            $this->deleteAvatar($user);
-            // 把文件信息写入资源表
-            $resource = $resource->fill([
-                'type' => $fileInfo['type'],
-                'name' => $fileInfo['fileName'],
-                'original_name' => $fileInfo['fileOriginalName'],
-                'uri' => $fileInfo['fileUri'],
-            ]);  // 批量填充数据到资源模型
-            $resource->user()->associate($user->id);  // 把用户id写入到resource模型
-            $resource->save();  // 保存数据到资源表
-            $resourceId = $resource->id;  // 获取创建的资源id
-        }
-        // 3.把要修改的数据写入到用户表
-        if ($resourceId) {
-            $data['avatar'] = $resourceId;  // 如果资源id存在，就把avatar的值设置为资源的id
-        }
-        $user->update($data);  // 更新用户信息
-        // 4.返回用户信息
+        // 2.更新用户信息
+        $user = $userService->update($request, $user, $resource);
+        // 3.返回用户模型
         return new UserResource($user);
     }
 
-    public function setPhone(UserRequest $request, User $user)
+    public function set(UserRequest $request, User $user, UserService $userService)
     {
         // 1.检查是否有权限执行
         $this->authorize('own', $user);
-        // 2.进行短信验证
-        $this->smsVerify($request);
-        // 进行手机号的绑定
-        $user->update([
-            'phone' => $request->phone,
-        ]);
-        // 返回当前用户的信息
+        // 2.设置用户信息
+        $user = $userService->set($request, $user);
+        // 3.返回用户模型数据
         return new UserResource($user);
     }
-
-    public function setPassword(UserRequest $request, User $user)
-    {
-        // 1.检查是否有权限执行
-        $this->authorize('own', $user);
-        // 2.进行短信验证
-        $this->smsVerify($request);
-        // 修改密码
-        $user->update([
-            'password' => $request->password,
-        ]);
-        // 返回当前用户的信息
-        return new UserResource($user);
-    }
-
-    // 设置用户邮箱号
-    public function setEmail(Request $request, User $user, Utils $utils)
-    {
-        // 检查执行权限
-        $this->authorize('own', $user);
-        // 表单验证
-        $this->validate($request, [
-            'email' => ['required', 'email', 'unique:uses,email'],  // 邮箱号必须是唯一的
-        ]);
-        // 设置邮箱号
-        $user->update([
-            'email' => $request->email,
-        ]);
-        // 发送邮件进行验证
-        $emailVerifyData = [
-            'email' => $user->email,
-            'time' => time(),
-            'state' => Str::random(10),
-        ];
-        // 获取邮箱验证的token值
-        $token = $utils->getEmailVerifyToken($emailVerifyData);
-        // 通过任务队列来发送邮件验证
-        $emailVerifyData['token'] = $token;
-        $uri = route('users/email-verify-callback', $emailVerifyData);
-        $sendData = [
-            'username' => $user->username,
-            'email' => $user->email,
-            'subject' => config('app.name') . '，邮箱号验证',
-            'uri' => $uri,
-        ];
-        dispatch(new SendEmailVerify($sendData));
-        // 返回数据
-        return new UserResource($user);
-    }
-
 
     public function emailVerifyCallback(Request $request)
     {
@@ -154,51 +173,25 @@ class UsersController extends Controller
             'token' => $request->query('token'),
         ];
         // 像邮箱号验证接口发送http请求
-        $responseData = Http::asForm()->post(route('users/email-verify', $requestData))->json();
-        $rtn = $this->returnJson(ApiReturnCode::API_RETURN_CODE_SUCCESS,
-            ApiReturnCode::getReturnMessage(ApiReturnCode::API_RETURN_CODE_SUCCESS), $responseData);
-        return response()->json($rtn);
+        $responseData = Http::asForm()->post(route(get_api_prefix() . 'users.email_verify', $requestData))->json();
+        return response()->json($responseData);
     }
 
-    public function emailVerify(UserRequest $request, Utils $utils)
+    public function emailVerify(UserRequest $request, UserService $userService)
     {
-        // 检查该token的验证时间是否过期
-        $expiredAt = Carbon::createFromTimestamp($request->time)->addSeconds(self::EMIAL_VERIFY_TTL);
-        // 如果时间过期了，那邮箱验证就会无效，必须在规定的时间内进行邮箱验证
-        if (time() > $expiredAt) {
-            throw new ApiHandlerException(ApiReturnCode::API_RETURN_CODE_VERIFICATION_EMAIL_EXPIRED,
-                ApiReturnCode::getReturnMessage(ApiReturnCode::API_RETURN_CODE_VERIFICATION_EMAIL_EXPIRED), 401);
-        }
-        // 根据请求参数来生成token值
-        $data = [
-            'email' => $request->email,
-            'time' => $request->time,
-            'state' => $request->state,
-        ];
-        $token = $utils->getEmailVerifyToken($data);
-        // 检查token是否一致
-        if (! hash_equals($token, $request->token)) {
-            throw new ApiHandlerException(ApiReturnCode::API_RETURN_CODE_EMAIL_VERIFY_FAILED,
-                ApiReturnCode::getReturnMessage(ApiReturnCode::API_RETURN_CODE_EMAIL_VERIFY_FAILED), 401);
-        }
-        // 验证成功，进行邮箱验证时间的修改
-        $user = User::query()->where('email', $request->email)->first();
-        $user->update([
-            'email_verified_at' => now()->toDateTimeString(),
-        ]);
-        // 返回数据
+        // 1.对邮箱进行验证
+        $user = $userService->emailVerify($request);
+        // 2.返回用户模型
         return new UserResource($user);
     }
 
-    private function deleteAvatar(User $user)
+    public function forgotPassword(UserRequest $request, UserService $userService)
     {
-        // 判断头像文件，是否是本地文件，如果是就对头像文件进行删除
-        if (! preg_match('/^https?:\/\/.+$/i')) {
-            $fullPath = storage_path('app/public/' . $user->avatar);
-            if (file_exists($fullPath)) {  // 检查头像文件是否存在，如果存在就进行删除
-                Storage::delete($fullPath);  // 删除文件
-            }
-        }
+        // 1.短信验证，验证通过后，进行密码的修改
+        $user = $userService->forgotPassword($request);
+        // 2.返回用户模型
+        return new UserResource($user);
     }
+
 
 }

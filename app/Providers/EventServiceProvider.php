@@ -2,6 +2,8 @@
 
 namespace App\Providers;
 
+use App\Events\CreateReply;
+use App\Listeners\SendTopicReplyNotification;
 use Illuminate\Auth\Events\Registered;
 use Illuminate\Auth\Listeners\SendEmailVerificationNotification;
 use Illuminate\Foundation\Support\Providers\EventServiceProvider as ServiceProvider;
@@ -22,6 +24,9 @@ class EventServiceProvider extends ServiceProvider
         ],
         SocialiteWasCalled::class => [
             WeixinExtendSocialite::class,
+        ],
+        CreateReply::class => [
+            SendTopicReplyNotification::class
         ],
     ];
 

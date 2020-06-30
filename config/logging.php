@@ -37,7 +37,7 @@ return [
     'channels' => [
         'stack' => [
             'driver' => 'stack',
-            'channels' => ['single'],
+            'channels' => ['daily'],
             'ignore_exceptions' => false,
         ],
 
@@ -51,7 +51,7 @@ return [
             'driver' => 'daily',
             'path' => storage_path('logs/laravel.log'),
             'level' => 'debug',
-            'days' => 14,
+            'days' => 7,
         ],
 
         'slack' => [
@@ -99,6 +99,15 @@ return [
         'emergency' => [
             'path' => storage_path('logs/laravel.log'),
         ],
+    ],
+
+    'query' => [
+
+        'enabled' => env('LOG_QUERY', false),
+
+        // Only record queries that are slower than the following time
+        // Unit: milliseconds
+        'slower_than' => 0,
     ],
 
 ];

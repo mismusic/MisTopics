@@ -15,7 +15,7 @@ class SocialitesController extends Controller
 
     public function callback(Request $request, $type)
     {
-        $response = Http::asForm()->post(route('api.v1.authorizations.socialite', $type), [
+        $response = Http::asForm()->post(route(get_api_prefix() . 'authorizations.socialite', $type), [
             'code' => $request->code,
         ])->json();
         return response()->json($response);

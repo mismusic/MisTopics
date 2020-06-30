@@ -3,6 +3,7 @@
 namespace App\Http;
 
 use App\Http\Middleware\AcceptRequest;
+use App\Http\Middleware\EnableCrossRequestMiddleware;
 use Illuminate\Foundation\Http\Kernel as HttpKernel;
 
 class Kernel extends HttpKernel
@@ -43,6 +44,7 @@ class Kernel extends HttpKernel
             AcceptRequest::class,
             'throttle:60,1',
             \Illuminate\Routing\Middleware\SubstituteBindings::class,
+            EnableCrossRequestMiddleware::class,
         ],
     ];
 

@@ -8,6 +8,7 @@ use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Foundation\Bus\Dispatchable;
 use Illuminate\Queue\InteractsWithQueue;
 use Illuminate\Queue\SerializesModels;
+use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Mail;
 
 class SendEmailVerify implements ShouldQueue
@@ -34,6 +35,11 @@ class SendEmailVerify implements ShouldQueue
     public function handle()
     {
         // 在队列任务里面进行邮件的发送
-        Mail::send(new EmailVerify($this->data));
+        try {
+            Mail::send(new EmailVerify($this->data));
+        } catch (\Exception $e) {
+            // 打印出发送邮件的错误原因
+            Log::warning('EmailVerify Error: ' . $e->getMessage());
+        }
     }
 }

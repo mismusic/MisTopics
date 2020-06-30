@@ -1,3 +1,5 @@
 <?php
 
-echo 'this is test file';
+$arr = ['小姐姐', 'test'];
+
+var_dump($arr);

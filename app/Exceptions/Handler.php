@@ -3,14 +3,20 @@
 namespace App\Exceptions;
 
 use App\Common\ApiReturnCode;
+use App\Common\Traits\ResponseJson;
 use Illuminate\Auth\Access\AuthorizationException;
 use Illuminate\Auth\AuthenticationException;
+use Illuminate\Database\Eloquent\ModelNotFoundException;
 use Illuminate\Foundation\Exceptions\Handler as ExceptionHandler;
 use Illuminate\Support\Arr;
+use Illuminate\Validation\ValidationException;
+use Symfony\Component\HttpKernel\Exception\MethodNotAllowedHttpException;
 use Throwable;
 
 class Handler extends ExceptionHandler
 {
+    use ResponseJson;
+
     /**
      * A list of the exception types that are not reported.
      *
@@ -54,12 +60,33 @@ class Handler extends ExceptionHandler
      */
     public function render($request, Throwable $exception)
     {
-        if ($exception instanceof AuthenticationException) {
-            throw new ApiHandlerException(ApiReturnCode::API_RETURN_CODE_TOKNE_AUTHENTICATION_ERROR,
-                ApiReturnCode::getReturnMessage(ApiReturnCode::API_RETURN_CODE_TOKNE_AUTHENTICATION_ERROR), 401);
+        if ($exception instanceof MethodNotAllowedHttpException) {
+            // 请求方法不允许的时候，抛出错误
+            return $this->returnJson(ApiReturnCode::API_RETURN_CODE_METHOD_NOT_ALLOWED, ['msg' => $exception->getMessage()], 405);
+            //die;
+        } else if ($exception instanceof AuthenticationException) {
+            if ($request->expectsJson()) {
+                // 未授权的时候返回
+                api_error(ApiReturnCode::API_RETURN_CODE_UNAUTHORIZED, 401);
+            }
         } else if ($exception instanceof AuthorizationException) {
-            throw new ApiHandlerException(ApiReturnCode::API_RETURN_CODE_UNAUTHORIZED,
-                ApiReturnCode::getReturnMessage(ApiReturnCode::API_RETURN_CODE_UNAUTHORIZED), 403);
+            if ($request->expectsJson()) {
+                // 拒绝执行的时候返回
+                api_error(ApiReturnCode::API_RETURN_CODE_FORBIDDEN, 403);
+            }
+        } else if ($exception instanceof ValidationException) {
+            if ($request->expectsJson()) {  // 当请求数据的类型为Json时，才执行该逻辑
+                // 请求参数不符合验证规则的时候返回
+                return $this->returnJson(ApiReturnCode::API_RETURN_CODE_VALIDATOR_FAILED, $exception->errors(), 422);
+            }
+        } else if ($exception instanceof ModelNotFoundException) {
+            if ($request->expectsJson()) {
+                return api_error(ApiReturnCode::API_RETURN_CODE_NOT_FOUND, 404);
+            }
+        } else if ($exception instanceof ApiHandlerException) {
+            /*if (! $request->expectsJson()) {
+                return view('shared.api_exception', ['msg' => $exception->getMessage()]);
+            }*/
         }
         return parent::render($request, $exception);
     }
@@ -67,7 +94,6 @@ class Handler extends ExceptionHandler
     public function convertExceptionToArray(Throwable $e)
     {
         return config('app.debug') ? [
-            'code' => $e->getCode(),
             'msg' => $e->getMessage(),
             'exception' => get_class($e),
             'file' => $e->getFile(),
@@ -76,8 +102,8 @@ class Handler extends ExceptionHandler
                 return Arr::except($trace, ['args']);
             })->all(),
         ] : [
-            'code' => $e->getCode(),
-            'message' => $e->getMessage(),
+            'code' => $this->isHttpException($e) ? $e->getCode() : ApiReturnCode::API_RETURN_CODE_SERVER_ERROR,
+            'msg' => $this->isHttpException($e) ? $e->getMessage() : ApiReturnCode::getReturnMessage(ApiReturnCode::API_RETURN_CODE_SERVER_ERROR),
         ];
     }
 }

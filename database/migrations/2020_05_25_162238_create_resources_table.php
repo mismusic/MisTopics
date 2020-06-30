@@ -22,7 +22,7 @@ class CreateResourcesTable extends Migration
             $table->string('original_name')->default('')->comment('资源原名称');
             $table->string('uri')->comment('资源存储地址');
             $table->string('description')->default('')->comment('资源简介');
-            $table->boolean('public')->default(true)->comment('资源是否公开');
+            $table->boolean('public')->default(1)->comment('资源是否公开');
             $table->timestamps();
             $table->index(['user_id', 'created_at']);
         });

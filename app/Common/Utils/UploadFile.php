@@ -3,10 +3,14 @@
 namespace App\Common\Utils;
 
 
+use App\Services\UserService;
 use Intervention\Image\Facades\Image;
 
 class UploadFile
 {
+
+    const UPLOAD_EXTENSION = 'doc,docx,ppt,pptx,xls,xlsx,txt,sql,zip,gz,bz,iso,gho,rar,mp3,ogg,wav,mp4,md,jpg,jpeg,png,gif';
+    const MAX_FILE_SIZE = 100;  // 单位M
 
     public static function localStorage($file, string $folder, $identified, $type = 'image', $size = null)
     {
@@ -18,17 +22,16 @@ class UploadFile
         // 2.保存文件到本地存储
         $file->move($fullPath, $fileName);
         // 如果资源类型为image，并且$size不等于null，就对图片进行剪切，缩放
-        if ($type === 'image' && ! is_null($size)) {
+        if ($type === UserService::RESOURCE_TYPE_IMAGE && ! is_null($size)) {
             self::resize($fullPath . '/' . $fileName, $size);
         }
         // 返回对应的文件信息
-        $utils = new Utils();
         return [
             'type' => $type,
             'fileUri' => $path . '/' . $fileName,
             'fileName' => $fileName,
             'fileOriginalName' => $file->getClientOriginalName(),  // 源文件名称
-            'fileSize' => $utils->convertFileSize(filesize($fullPath . '/' . $fileName)),  // 上传的文件大小
+            'fileSize' => Utils::convertFileSize(filesize($fullPath . '/' . $fileName)),  // 上传的文件大小
         ];
     }
 

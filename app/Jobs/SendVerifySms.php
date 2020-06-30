@@ -8,6 +8,7 @@ use Illuminate\Foundation\Bus\Dispatchable;
 use Illuminate\Queue\InteractsWithQueue;
 use Illuminate\Queue\SerializesModels;
 use Illuminate\Support\Facades\Log;
+use Overtrue\EasySms\Exceptions\NoGatewayAvailableException;
 
 class SendVerifySms implements ShouldQueue
 {
@@ -45,7 +46,7 @@ class SendVerifySms implements ShouldQueue
         } catch (NoGatewayAvailableException $e) {
             $message = $e->getException('aliyun')->getMessage();
             // 打印发送短信失败的错误信息到日志文件
-            Log::info($message);
+            Log::warning($message);
         }
     }
 }

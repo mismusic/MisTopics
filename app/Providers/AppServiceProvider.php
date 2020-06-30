@@ -2,7 +2,11 @@
 
 namespace App\Providers;
 
+use App\Models\Category;
+use App\Models\Topic;
+use App\Observers\TopicObserver;
 use Illuminate\Support\Facades\Schema;
+use Illuminate\Support\Facades\View;
 use Illuminate\Support\ServiceProvider;
 use Overtrue\EasySms\EasySms;
 
@@ -31,5 +35,6 @@ class AppServiceProvider extends ServiceProvider
     {
         // todo
         Schema::defaultStringLength(255);
+        View::share('sharedCategories', (new Category())->sharedCategoriesData());
     }
 }

@@ -37,4 +37,16 @@ return [
         'redirect' => env('SOCIALITE_WEIXIN_REDIRECT'),
     ],
 
+    // 百度翻译
+    'fanyi' => [
+        'app_id' => env('BAIDU_FANYI_APP_ID'),
+        'app_key' => env('BAIDU_FANYI_APP_KEY'),
+        'request_url' => env('BAIDU_FANYI_REQUEST_URL', 'http://api.fanyi.baidu.com/api/trans/vip/translate?'),
+    ],
+
+    // 跨域请求配置
+    'cross' => [
+        'allow_origin' => env('CROSS_ALLOW_ORIGIN', null),
+    ],
+
 ];

@@ -4,35 +4,34 @@ namespace App\Common\Traits;
 
 use App\Common\ApiReturnCode;
 use App\Common\Utils\Utils;
-use App\Exceptions\ApiHandlerException;
+use App\Jobs\SendVerifySms;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Cache;
+use Illuminate\Support\Str;
 use Overtrue\EasySms\EasySms;
 
 trait Verifications
 {
 
-    public function smsVerify(Request $request) :void
+    public function smsVerify(Request $request) :array
     {
-        $phone = $request->phone;
         $verificationData = Cache::get($request->input('verification_key'));
+        Cache::forget($request->input('verification_key'));  // 删除缓存里面的短信验证码信息
         // 如果获取的验证信息为null，就抛出错误
         if (empty($verificationData)) {
-            throw new ApiHandlerException(ApiReturnCode::API_RETURN_CODE_VERIFICATION_KEY_INVALID,
-                ApiReturnCode::getReturnMessage(ApiReturnCode::API_RETURN_CODE_VERIFICATION_KEY_INVALID), 401);
+            api_error(ApiReturnCode::API_RETURN_CODE_VERIFICATION_KEY_INVALID, 401);
         }
         // 判断请求参数里面的phone和verification_code是否和存储在缓存里面的验证数据一致
-        if ($verificationData['phone'] !== $phone || $verificationData['verification_code'] !== $request->verification_code)
+        if (! hash_equals($verificationData['verification_code'], $request->verification_code))
         {
-            throw new ApiHandlerException(ApiReturnCode::API_RETURN_CODE_VERIFICATION_CODE_ERROR,
-                ApiReturnCode::getReturnMessage(ApiReturnCode::API_RETURN_CODE_VERIFICATION_CODE_ERROR), 401);
+            api_error(ApiReturnCode::API_RETURN_CODE_VERIFICATION_CODE_ERROR, 401);
         }
+        return $verificationData;
     }
 
-    public function sendSms(EasySms $easySms, $phone)
+    public function sendSms(EasySms $easySms, $phone) :array
     {
-        $utils = new Utils();
-        $code = $utils->getRandomNumCode();
+        $code = Utils::getRandomNumCode();
         $smsData = [
             'easySms' => $easySms,
             'phone' => $phone,
@@ -55,6 +54,7 @@ trait Verifications
             'verification_key' => $key,
             'expired_at' => $ttl->toDateTimeString(),
         ];
+        return $data;
     }
 
 }
